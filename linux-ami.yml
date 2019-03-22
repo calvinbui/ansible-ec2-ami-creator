@@ -1,0 +1,84 @@
+---
+
+- name: Create EC2 instance
+  hosts: localhost
+  connection: local
+  gather_facts: False
+  become: False
+  tasks:
+    - name: Create EC2 Instance
+      ec2:
+        key_name: "{{ ec2_key }}"
+        group_id: "{{ ec2_security_groups }}"
+        instance_type: "{{ ec2_instance_type }}"
+        image: "{{ ec2_image }}"
+        wait: yes
+        wait_timeout: 500
+        volumes:
+          - device_name: /dev/xvda
+            volume_type: gp2
+            volume_size: "{{ ec2_volume_size }}"
+        state: present
+        id: "{{ ec2_id }}"
+        ec2_region: "{{ ec2_region }}"
+        vpc_subnet_id: "{{ ec2_subnet_id }}"
+        spot_type: one-time
+        spot_price: "{{ ec2_spot_price }}"
+      register: ec2
+
+    - name: Wait for SSH
+      wait_for:
+        host: "{{ item.public_dns_name }}"
+        port: 22
+        state: started
+      loop: "{{ ec2.instances }}"
+
+    - name: Add all instance public IPs to host group
+      add_host:
+        hostname: "{{ item.public_ip }}"
+        groups: ec2hosts
+      loop: "{{ ec2.instances }}"
+
+- name: Provision EC2 Instance
+  hosts: ec2hosts
+  user: "{{ ec2_user }}"
+  become: True
+  vars:
+    ansible_ssh_private_key_file: "{{ ec2_key_file }}"
+  roles:
+    - my_role_goes_here
+
+- name: Create AMI and stop EC2 Instance
+  hosts: localhost
+  connection: local
+  gather_facts: False
+  become: False
+  tasks:
+    - name: Find previous AMI if exists
+      ec2_ami_facts:
+        filters:
+          name: "{{ ec2_id }}"
+      register: ami
+
+    - name: Delete previous AMI
+      ec2_ami:
+        image_id: "{{ item.image_id }}"
+        delete_snapshot: True
+        state: absent
+      loop: "{{ ami.images }}"
+
+    - name: Create AMI from EC2 instance
+      ec2_ami:
+        instance_id: "{{ item }}"
+        wait: yes
+        name: "{{ ec2_id }}"
+        state: present
+      loop: "{{ ec2.instance_ids }}"
+
+    - name: Terminate EC2 instance
+      ec2:
+        instance_ids: "{{ ec2.instance_ids }}"
+        region: "{{ ec2_region }}"
+        state: absent
+        wait: True
+        vpc_subnet_id: "{{ ec2_subnet_id }}"

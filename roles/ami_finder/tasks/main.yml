@@ -1,0 +1,14 @@
+---
+
+# https://docs.ansible.com/ansible/latest/modules/ec2_ami_find_module.html#ec2-ami-find-module
+- name: Search for AMI in account
+  ec2_ami_facts:
+    owner: self
+    filters:
+      "name": "{{ ami_name }}*"
+  register: ami_find
+  no_log: True
+
+- debug:
+    msg: "{{ item.image_location }}"
+  loop: "{{ ami_find.images }}"

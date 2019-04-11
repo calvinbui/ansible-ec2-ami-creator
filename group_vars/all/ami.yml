@@ -1,0 +1,6 @@
+---
+
+ami_name: monitoring*
+ami_region: ap-southeast-2
+
+ec2_name: monitoring*

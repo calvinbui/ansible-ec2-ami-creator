@@ -1,0 +1,10 @@
+---
+
+- hosts: localhost
+  connection: local
+  gather_facts: False
+  vars:
+    region: ap-southeast-2
+  roles:
+    - ami_creator
+    - ami_finder

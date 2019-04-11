@@ -1,0 +1,17 @@
+---
+
+# https://docs.ansible.com/ansible/latest/modules/ec2_ami_module.html
+
+- name: Find EC2 instance ID
+  ec2_instance_facts:
+    filters:
+      "tag:Name": "{{ ec2_name }}"
+  register: ec2_id
+
+- name: Create AMI from EC2 instance
+  ec2_ami:
+    instance_id: "{{ item.instance_id }}"
+    wait: yes
+    name: "calvin-ansible-example-ami"
+    state: present
+  loop: "{{ ec2_id.instances }}"
